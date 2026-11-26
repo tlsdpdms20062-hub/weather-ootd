@@ -3,7 +3,7 @@
 // Gemini 키는 Vercel 환경변수 GEMINI_API_KEY에만 둔다.
 const { TYPES, THICKS, COLORS } = require("../js/recommend");
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = (process.env.GEMINI_MODEL || "gemini-3.8-flash").trim();
 
 const PROMPT =
   "이 옷 사진을 보고 type(상의/하의/아우터), " +
