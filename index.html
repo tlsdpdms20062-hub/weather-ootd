@@ -224,39 +224,53 @@ button, input, select { font: inherit; }
     return missing;
   }
 
+  // 필요한 두께의 아우터가 없을 때 대신 쓸 두께 (가까운 순)
+  const ADJ = { 얇음: "얇은", 보통: "보통", 두꺼움: "두꺼운" };
+  const OUTER_FALLBACK = { 얇음: ["보통"], 보통: ["두꺼움", "얇음"], 두꺼움: ["보통"] };
+
+  // 아우터 후보 고르기: 정확한 두께 → 없으면 가까운 두께
+  function pickOuters(closet, need) {
+    if (!need) return { list: [], thick: null };
+    const known = c => colorGroup[c.color] !== undefined;
+    for (const th of [need, ...OUTER_FALLBACK[need]]) {
+      const list = closet.filter(c => c.type === "아우터" && c.thick === th && known(c));
+      if (list.length) return { list, thick: th };
+    }
+    return { list: [], thick: null };
+  }
+
   // ④ 가능한 모든 코디를 점수 높은 순으로 반환
+  //    아우터가 여러 벌이면 아우터마다 다른 코디로 만든다
   function rankLooks(closet, minTemp, maxTemp) {
     const need = getThickness(minTemp, maxTemp);
     const known = c => colorGroup[c.color] !== undefined;   // 모르는 색은 제외
 
     const tops    = closet.filter(c => c.type === "상의" && need.top.includes(c.thick) && known(c));
     const bottoms = closet.filter(c => c.type === "하의" && c.thick === need.bottom && known(c));
-    const outers  = need.outer
-      ? closet.filter(c => c.type === "아우터" && c.thick === need.outer && known(c))
-      : [];
+    const outer   = pickOuters(closet, need.outer);
+    const needOuter = need.outer !== null;
+    const outerList = outer.list.length ? outer.list : [null];
 
     const looks = [];
     for (const top of tops) {
       for (const bottom of bottoms) {
         const tg = colorGroup[top.color];
         const bg = colorGroup[bottom.color];
-
-        // 아우터는 하의와 색 점수가 가장 높은 것을 고른다
-        let outer = null;
-        for (const o of outers) {
-          if (!outer || colorScore[colorGroup[o.color]][bg] > colorScore[colorGroup[outer.color]][bg]) outer = o;
+        for (const o of outerList) {
+          let reason = makeReason(tg, bg, minTemp, needOuter, o !== null);
+          if (o && outer.thick !== need.outer)
+            reason += ` (${ADJ[need.outer]} 아우터가 없어 ${ADJ[outer.thick]} 아우터로 대신했어요)`;
+          looks.push({
+            top, bottom, outer: o, needOuter,
+            score: colorScore[tg][bg],
+            outerScore: o ? colorScore[colorGroup[o.color]][bg] : 0,   // 같은 점수면 하의와 어울리는 아우터 먼저
+            reason
+          });
         }
-
-        looks.push({
-          top, bottom, outer,
-          needOuter: need.outer !== null,
-          score: colorScore[tg][bg],
-          reason: makeReason(tg, bg, minTemp, need.outer !== null, outer !== null)
-        });
       }
     }
 
-    looks.sort((a, b) => b.score - a.score);
+    looks.sort((a, b) => b.score - a.score || b.outerScore - a.outerScore);
     return looks;
   }
 
