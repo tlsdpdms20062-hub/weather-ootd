@@ -1,0 +1,6 @@
+{
+  "name": "ootd-weather",
+  "private": true,
+  "scripts": { "test": "node tests/test.js" },
+  "engines": { "node": ">=18" }
+}
